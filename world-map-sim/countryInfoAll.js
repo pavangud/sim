@@ -27,6 +27,7 @@ window.countryInfoAll = {
   '072': { name: 'Botswana', capital: 'Gaborone', population: '2351627' },
   '076': { name: 'Brazil', capital: 'Brasília', population: '213993437' },
   '084': { name: 'Belize', capital: 'Belmopan', population: '397621' },
+  '096': { name: 'Brunei', capital: 'Bandar Seri Begawan', population: '453,302' },
   '100': { name: 'Bulgaria', capital: 'Sofia', population: '6951482' },
   '104': { name: 'Myanmar', capital: 'Naypyidaw', population: '54409800' },
   '108': { name: 'Burundi', capital: 'Gitega', population: '11890784' },
@@ -234,9 +235,9 @@ window.countryInfoAll = {
   '882': { name: 'Samoa', capital: 'Apia', population: '198410' },
   '887': { name: 'Yemen', capital: 'Sana’a', population: '30491000' },
   '894': { name: 'Zambia', capital: 'Lusaka', population: '18383955' },
-  '158': { name: 'Taiwan', capital: 'Taipei', population: '23893394' },
-  '031': { name: 'Azerbaijan', capital: 'Baku', population: '10139177' },
-  '383': { name: 'Kosovo', capital: 'Pristina', population: '1810366' }
+  '158': { name: 'Taiwan', capital: 'Taipei', population: '23,893,394' },
+  '031': { name: 'Azerbaijan', capital: 'Baku', population: '10,139,177' },
+  '383': { name: 'Kosovo', capital: 'Pristina', population: '1,810,366' }
 };
 
 window.countryRegions = {
@@ -256,6 +257,7 @@ window.countryRegions = {
   '032': 'Americas', // Argentina
   '036': 'Oceania', // Australia
   '040': 'Europe', // Austria
+  '031': 'Azerbaijan', // Azerbaijan
   '044': 'Americas', // Bahamas
   '048': 'Asia', // Bahrain
   '050': 'Asia', // Bangladesh
@@ -269,6 +271,7 @@ window.countryRegions = {
   '072': 'Africa', // Botswana
   '076': 'Americas', // Brazil
   '084': 'Americas', // Belize
+  '096': 'Asia', // Brunei
   '100': 'Europe', // Bulgaria
   '104': 'Asia', // Myanmar
   '108': 'Africa', // Burundi

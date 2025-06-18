@@ -19,7 +19,28 @@ const g = svg.append('g');
 
 // Load world map data (TopoJSON)
 d3.json('https://unpkg.com/world-atlas@2.0.2/countries-110m.json').then(worldData => {
-  const countries = topojson.feature(worldData, worldData.objects.countries).features;
+  let countries = topojson.feature(worldData, worldData.objects.countries).features;
+
+  // Merge features with the same id (e.g., Somalia/Somaliland)
+  const merged = {};
+  countries.forEach(f => {
+    if (!merged[f.id]) {
+      merged[f.id] = f;
+    } else {
+      // Merge geometries
+      merged[f.id] = {
+        ...f,
+        geometry: {
+          type: 'MultiPolygon',
+          coordinates: [].concat(
+            merged[f.id].geometry.type === 'Polygon' ? [merged[f.id].geometry.coordinates] : merged[f.id].geometry.coordinates,
+            f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates
+          )
+        }
+      };
+    }
+  });
+  countries = Object.values(merged);
 
   // Color palette for continents/regions
   const regionColors = {
@@ -30,7 +51,6 @@ d3.json('https://unpkg.com/world-atlas@2.0.2/countries-110m.json').then(worldDat
     'Oceania': '#a8dadc',
     'Antarctica': '#bdbdbd',
     'Ocean': '#4f8ad1',
-    'Unknown': '#b3cde0'
   };
 
   // Draw ocean background
@@ -46,14 +66,12 @@ d3.json('https://unpkg.com/world-atlas@2.0.2/countries-110m.json').then(worldDat
       hidePopup();
     });
 
+  // Uncolor the map by setting all countries to a neutral color only
   g.selectAll('path')
     .data(countries)
     .enter().append('path')
     .attr('d', path)
-    .attr('fill', d => {
-      const region = window.countryRegions[d.id] || 'Unknown';
-      return regionColors[region] || regionColors['Unknown'];
-    })
+    .attr('fill', '#e0e0e0') // neutral gray for all countries
     .attr('stroke', '#333')
     .attr('cursor', 'pointer')
     .on('mouseover', function(event, d) {
