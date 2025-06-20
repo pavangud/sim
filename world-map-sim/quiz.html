@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>World Map Quiz</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>World Map Quiz</h1>
+  <button id="back-to-map" style="position:absolute;top:20px;right:20px;z-index:1100;">Back to Map</button>
+  <div id="quiz-map"></div>
+  <div id="quiz-ui" style="position: absolute; top: 20px; left: 20px; background: #fff; padding: 12px 18px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1100;">
+    <span id="quiz-prompt" style="margin-left: 0;"></span>
+    <span id="quiz-score" style="margin-left: 16px;"></span>
+    <button id="restart-quiz" style="margin-left: 16px;">Restart</button>
+  </div>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/topojson-client@3"></script>
+  <script src="countryInfoAll.js"></script>
+  <script src="quiz.js"></script>
+</body>
+</html>

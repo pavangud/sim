@@ -22,6 +22,28 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('start-quiz').disabled = true;
   document.getElementById('restart-quiz').disabled = true;
   document.getElementById('quiz-prompt').textContent = 'Loading map...';
+
+  // Add a new button to go to the quiz page (ensure it is created after DOM is ready)
+  const mapDiv = document.getElementById('map');
+  if (mapDiv && !document.getElementById('go-to-quiz-page')) {
+    const quizPageBtn = document.createElement('button');
+    quizPageBtn.id = 'go-to-quiz-page';
+    quizPageBtn.textContent = 'Go to Quiz Page';
+    quizPageBtn.style.position = 'absolute';
+    quizPageBtn.style.top = '60px';
+    quizPageBtn.style.right = '20px';
+    quizPageBtn.style.zIndex = 1100;
+    quizPageBtn.style.padding = '10px 18px';
+    quizPageBtn.style.fontSize = '1rem';
+    quizPageBtn.style.background = '#fff';
+    quizPageBtn.style.border = '1px solid #333';
+    quizPageBtn.style.borderRadius = '8px';
+    quizPageBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+    document.body.appendChild(quizPageBtn);
+    quizPageBtn.onclick = function() {
+      window.location.href = 'quiz.html';
+    };
+  }
 });
 
 // Load world map data (TopoJSON)
@@ -73,13 +95,45 @@ d3.json('https://unpkg.com/world-atlas@2.0.2/countries-110m.json').then(worldDat
       hidePopup();
     });
 
-  // --- QUIZ MECHANIC ---
+  // Remove any existing paths before drawing new ones
+  g.selectAll('path').remove();
+
+  // Color all countries by continent/region, including those labeled 'Unknown'
+  g.selectAll('path')
+    .data(countries)
+    .enter().append('path')
+    .attr('d', path)
+    .attr('fill', d => {
+      const region = window.countryRegions[d.id] || 'Unknown';
+      return regionColors[region] || '#ff00ff';
+    })
+    .attr('stroke', '#333')
+    .attr('cursor', 'pointer')
+    .on('mouseover', function(event, d) {
+      d3.select(this)
+        .attr('stroke', '#ff0')
+        .attr('stroke-width', 3)
+        .raise();
+    })
+    .on('mouseout', function(event, d) {
+      d3.select(this)
+        .attr('stroke', '#333')
+        .attr('stroke-width', 1);
+    })
+    .on('click', function(event, d) {
+      zoomToCountry(d);
+      showCountryInfo(d);
+    });
+
+  // --- Seterra-style Quiz Mechanic ---
+  // Quiz state variables
   let quizActive = false;
   let quizCountries = [];
   let quizCurrent = null;
   let quizScore = 0;
   let quizAnswered = new Set();
 
+  // Get quiz UI elements
   const startBtn = document.getElementById('start-quiz');
   const restartBtn = document.getElementById('restart-quiz');
   const promptSpan = document.getElementById('quiz-prompt');
@@ -96,7 +150,7 @@ d3.json('https://unpkg.com/world-atlas@2.0.2/countries-110m.json').then(worldDat
     quizActive = true;
     quizScore = 0;
     quizAnswered = new Set();
-    quizCountries = countries.map(d => d.id).filter(id => window.countryInfoAll[id]);
+    quizCountries = g.selectAll('path').data().map(d => d.id).filter(id => window.countryInfoAll[id]);
     d3.shuffle(quizCountries);
     startBtn.style.display = 'none';
     restartBtn.style.display = '';
@@ -123,7 +177,7 @@ d3.json('https://unpkg.com/world-atlas@2.0.2/countries-110m.json').then(worldDat
     quizCurrent = quizCountries.pop();
     const info = window.countryInfoAll[quizCurrent];
     promptSpan.textContent = `Find: ${info ? info.name : quizCurrent}`;
-    scoreSpan.textContent = `Score: ${quizScore}/${countries.length}`;
+    scoreSpan.textContent = `Score: ${quizScore}/${g.selectAll('path').data().length}`;
   }
 
   function handleQuizClick(event, d) {
@@ -136,7 +190,7 @@ d3.json('https://unpkg.com/world-atlas@2.0.2/countries-110m.json').then(worldDat
         .raise();
       quizScore++;
       quizAnswered.add(d.id);
-      scoreSpan.textContent = `Score: ${quizScore}/${countries.length}`;
+      scoreSpan.textContent = `Score: ${quizScore}/${g.selectAll('path').data().length}`;
       setTimeout(() => {
         nextQuizRound();
       }, 700);
@@ -154,51 +208,74 @@ d3.json('https://unpkg.com/world-atlas@2.0.2/countries-110m.json').then(worldDat
     }
   }
 
-  // Remove any existing paths before drawing new ones
-  g.selectAll('path').remove();
+  // Remove all previous listeners and set up only quiz-aware listeners
+  g.selectAll('path').on('.quiz', null).on('mouseover', null).on('mouseout', null).on('click', null);
 
-  // Color all countries by continent/region, including those labeled 'Unknown'
-  g.selectAll('path')
-    .data(countries)
-    .enter().append('path')
-    .attr('d', path)
-    .attr('fill', d => {
+  function setQuizListeners() {
+    g.selectAll('path')
+      .on('mouseover', function(event, d) {
+        if (quizActive && d.id === quizCurrent && !quizAnswered.has(d.id)) {
+          d3.select(this).attr('stroke', '#0f0').attr('stroke-width', 3).raise();
+        } else if (quizActive && !quizAnswered.has(d.id)) {
+          d3.select(this).attr('stroke', '#ff0').attr('stroke-width', 3).raise();
+        } else {
+          d3.select(this).attr('stroke', '#ff0').attr('stroke-width', 3).raise();
+        }
+      })
+      .on('mouseout', function(event, d) {
+        if (quizActive && quizAnswered.has(d.id)) return;
+        d3.select(this).attr('stroke', '#333').attr('stroke-width', 1);
+      })
+      .on('click', function(event, d) {
+        if (quizActive) {
+          handleQuizClick.call(this, event, d);
+        } else {
+          zoomToCountry(d);
+          showCountryInfo(d);
+        }
+      });
+  }
+
+  // Add event listeners to quiz buttons
+  if (startBtn) startBtn.onclick = function() {
+    quizActive = true;
+    quizScore = 0;
+    quizAnswered = new Set();
+    quizCountries = g.selectAll('path').data().map(d => d.id).filter(id => window.countryInfoAll[id]);
+    d3.shuffle(quizCountries);
+    startBtn.style.display = 'none';
+    restartBtn.style.display = '';
+    scoreSpan.textContent = `Score: 0/${quizCountries.length}`;
+    nextQuizRound();
+    g.selectAll('path').attr('stroke', '#333').attr('stroke-width', 1).attr('fill', d => {
       const region = window.countryRegions[d.id] || 'Unknown';
       return regionColors[region] || '#ff00ff';
-    })
-    .attr('stroke', '#333')
-    .attr('cursor', 'pointer')
-    .on('mouseover', function(event, d) {
-      if (quizActive && d.id === quizCurrent && !quizAnswered.has(d.id)) {
-        d3.select(this).attr('stroke', '#0f0').attr('stroke-width', 3).raise();
-      } else if (quizActive && !quizAnswered.has(d.id)) {
-        d3.select(this).attr('stroke', '#ff0').attr('stroke-width', 3).raise();
-      } else {
-        d3.select(this).attr('stroke', '#ff0').attr('stroke-width', 3).raise();
-      }
-    })
-    .on('mouseout', function(event, d) {
-      if (quizActive && quizAnswered.has(d.id)) return;
-      d3.select(this).attr('stroke', '#333').attr('stroke-width', 1);
-    })
-    .on('click', function(event, d) {
-      if (quizActive) {
-        handleQuizClick.call(this, event, d);
-      } else {
-        zoomToCountry(d);
-        showCountryInfo(d);
-      }
     });
+    setQuizListeners();
+    // Show the prompt span if hidden
+    promptSpan.style.display = '';
+  };
+  if (restartBtn) restartBtn.onclick = function() {
+    startBtn.onclick();
+  };
+  // Make sure the prompt span is visible on load
+  promptSpan.style.display = '';
 
   // Enable quiz buttons and clear loading message when map is ready
   document.getElementById('start-quiz').disabled = false;
   document.getElementById('restart-quiz').disabled = false;
   document.getElementById('quiz-prompt').textContent = '';
-  // Quiz button event listeners
-  if (startBtn) startBtn.onclick = startQuiz;
-  if (restartBtn) restartBtn.onclick = startQuiz;
-  resetQuizUI();
 });
+
+// If on the main map page, redirect to quiz.html when Start Quiz is clicked
+const startQuizBtn = document.getElementById('start-quiz');
+if (startQuizBtn) {
+  startQuizBtn.onclick = function() {
+    window.location.href = 'quiz.html';
+  };
+}
+
+// Remove the global quizPageBtn variable, as it is now created in DOMContentLoaded
 
 function zoomToCountry(d) {
   const [[x0, y0], [x1, y1]] = path.bounds(d);
