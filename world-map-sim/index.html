@@ -9,16 +9,16 @@
 <body>
   <h1>Interactive World Map Simulation</h1>
   <button id="reset-zoom" style="position:absolute;top:20px;right:20px;z-index:1100;">Reset Zoom</button>
+  <button id="go-to-quiz-page" style="position:absolute;top:60px;right:20px;z-index:1100;padding:10px 18px;font-size:1rem;background:#fff;border:1px solid #333;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.15);">Go to Quiz Page</button>
   <div id="map"></div>
-  <div id="quiz-ui" style="position: absolute; top: 20px; left: 20px; background: #fff; padding: 12px 18px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1100;">
-    <button id="start-quiz">Start Quiz</button>
-    <span id="quiz-prompt" style="margin-left: 16px;"></span>
-    <span id="quiz-score" style="margin-left: 16px;"></span>
-    <button id="restart-quiz" style="display:none; margin-left: 16px;">Restart</button>
-  </div>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://unpkg.com/topojson-client@3"></script>
   <script src="countryInfoAll.js"></script>
   <script src="script.js"></script>
+  <script>
+    document.getElementById('go-to-quiz-page').onclick = function() {
+      window.location.href = 'quiz.html';
+    };
+  </script>
 </body>
 </html>

@@ -39,6 +39,8 @@ let quizCountries = [];
 let quizCurrent = null;
 let quizScore = 0;
 let quizAnswered = new Set();
+let quizAttempts = 0;
+const MAX_ATTEMPTS = 3;
 
 const promptSpan = document.getElementById('quiz-prompt');
 const scoreSpan = document.getElementById('quiz-score');
@@ -75,6 +77,7 @@ function nextQuizRound() {
     return;
   }
   quizCurrent = quizCountries.pop();
+  quizAttempts = 0;
   const info = window.countryInfoAll[quizCurrent];
   promptSpan.textContent = `Find: ${info ? info.name : quizCurrent}`;
   scoreSpan.textContent = `Score: ${quizScore}/${g.selectAll('path').data().length}`;
@@ -94,6 +97,7 @@ function handleQuizClick(event, d) {
       nextQuizRound();
     }, 700);
   } else {
+    quizAttempts++;
     d3.select(this)
       .attr('stroke', 'red')
       .attr('stroke-width', 4)
@@ -102,6 +106,21 @@ function handleQuizClick(event, d) {
       d3.select(this)
         .attr('stroke', '#333')
         .attr('stroke-width', 1);
+      if (quizAttempts >= MAX_ATTEMPTS) {
+        quizAnswered.add(quizCurrent);
+        // Highlight the correct country in red for 1 second
+        const correctPath = g.selectAll('path').filter(dd => dd.id === quizCurrent);
+        correctPath
+          .attr('stroke', 'red')
+          .attr('stroke-width', 4)
+          .raise();
+        setTimeout(() => {
+          correctPath
+            .attr('stroke', '#333')
+            .attr('stroke-width', 1);
+          nextQuizRound();
+        }, 1000);
+      }
     }, 700);
   }
 }
@@ -109,17 +128,10 @@ function handleQuizClick(event, d) {
 function setQuizListeners() {
   g.selectAll('path')
     .on('mouseover', function(event, d) {
-      if (quizActive && d.id === quizCurrent && !quizAnswered.has(d.id)) {
-        d3.select(this).attr('stroke', '#0f0').attr('stroke-width', 3).raise();
-      } else if (quizActive && !quizAnswered.has(d.id)) {
-        d3.select(this).attr('stroke', '#ff0').attr('stroke-width', 3).raise();
-      } else {
-        d3.select(this).attr('stroke', '#ff0').attr('stroke-width', 3).raise();
-      }
+      // Do not highlight anything on hover
     })
     .on('mouseout', function(event, d) {
-      if (quizActive && quizAnswered.has(d.id)) return;
-      d3.select(this).attr('stroke', '#333').attr('stroke-width', 1);
+      // Do not change stroke on mouseout
     })
     .on('click', function(event, d) {
       if (quizActive) {
