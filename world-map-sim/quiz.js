@@ -61,6 +61,7 @@ function startQuiz() {
   scoreSpan.textContent = `Score: 0/${quizCountries.length}`;
   nextQuizRound();
   g.selectAll('path').attr('stroke', '#333').attr('stroke-width', 1).attr('fill', d => {
+    if (quizAnswered.has(d.id)) return 'white';
     const region = window.countryRegions[d.id] || 'Unknown';
     return regionColors[region] || '#ff00ff';
   });
@@ -89,6 +90,7 @@ function handleQuizClick(event, d) {
     d3.select(this)
       .attr('stroke', 'green')
       .attr('stroke-width', 4)
+      .attr('fill', 'white')
       .raise();
     quizScore++;
     quizAnswered.add(d.id);
