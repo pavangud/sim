@@ -17,8 +17,13 @@ const path = d3.geoPath().projection(projection);
 
 const g = svg.append('g');
 
-// Add a loading indicator and disable quiz buttons until map is ready
-window.addEventListener('DOMContentLoaded', () => {
+// Ensure map renders immediately on page load
+window.addEventListener('DOMContentLoaded', function() {
+  // If your map rendering logic is not already here, move it here.
+  // For example, if you have a function like renderMap(), call it here.
+  // If the code is already at the top level, this is just a safeguard.
+
+  // Add a loading indicator and disable quiz buttons until map is ready
   document.getElementById('start-quiz').disabled = true;
   document.getElementById('restart-quiz').disabled = true;
   document.getElementById('quiz-prompt').textContent = 'Loading map...';
@@ -44,227 +49,227 @@ window.addEventListener('DOMContentLoaded', () => {
       window.location.href = 'quiz.html';
     };
   }
-});
 
-// Load world map data (TopoJSON)
-d3.json('https://unpkg.com/world-atlas@2.0.2/countries-110m.json').then(worldData => {
-  let countries = topojson.feature(worldData, worldData.objects.countries).features;
+  // Load world map data (TopoJSON)
+  d3.json('https://unpkg.com/world-atlas@2.0.2/countries-110m.json').then(worldData => {
+    let countries = topojson.feature(worldData, worldData.objects.countries).features;
 
-  // Merge features with the same id (e.g., Somalia/Somaliland)
-  const merged = {};
-  countries.forEach(f => {
-    if (!merged[f.id]) {
-      merged[f.id] = f;
-    } else {
-      // Merge geometries
-      merged[f.id] = {
-        ...f,
-        geometry: {
-          type: 'MultiPolygon',
-          coordinates: [].concat(
-            merged[f.id].geometry.type === 'Polygon' ? [merged[f.id].geometry.coordinates] : merged[f.id].geometry.coordinates,
-            f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates
-          )
-        }
-      };
-    }
-  });
-  countries = Object.values(merged);
-
-  // Color palette for continents/regions
-  const regionColors = {
-    'Africa': '#f4a261',
-    'Americas': '#2a9d8f',
-    'Asia': '#e76f51',
-    'Europe': '#264653',
-    'Oceania': '#a8dadc',
-    'Antarctica': '#bdbdbd',
-    'Ocean': '#4f8ad1',
-  };
-
-  // Draw ocean background
-  svg.insert('rect', ':first-child')
-    .attr('width', width)
-    .attr('height', height)
-    .attr('fill', regionColors['Ocean'])
-    .on('mousemove', function(event) {
-      // Optional: show ocean popup on hover
-      showOceanInfo(event);
-    })
-    .on('mouseout', function() {
-      hidePopup();
+    // Merge features with the same id (e.g., Somalia/Somaliland)
+    const merged = {};
+    countries.forEach(f => {
+      if (!merged[f.id]) {
+        merged[f.id] = f;
+      } else {
+        // Merge geometries
+        merged[f.id] = {
+          ...f,
+          geometry: {
+            type: 'MultiPolygon',
+            coordinates: [].concat(
+              merged[f.id].geometry.type === 'Polygon' ? [merged[f.id].geometry.coordinates] : merged[f.id].geometry.coordinates,
+              f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates
+            )
+          }
+        };
+      }
     });
+    countries = Object.values(merged);
 
-  // Remove any existing paths before drawing new ones
-  g.selectAll('path').remove();
+    // Color palette for continents/regions
+    const regionColors = {
+      'Africa': '#f4a261',
+      'Americas': '#2a9d8f',
+      'Asia': '#e76f51',
+      'Europe': '#264653',
+      'Oceania': '#a8dadc',
+      'Antarctica': '#bdbdbd',
+      'Ocean': '#4f8ad1',
+    };
 
-  // Color all countries by continent/region, including those labeled 'Unknown'
-  g.selectAll('path')
-    .data(countries)
-    .enter().append('path')
-    .attr('d', path)
-    .attr('fill', d => {
-      const region = window.countryRegions[d.id] || 'Unknown';
-      return regionColors[region] || '#ff00ff';
-    })
-    .attr('stroke', '#333')
-    .attr('cursor', 'pointer')
-    .on('mouseover', function(event, d) {
-      d3.select(this)
-        .attr('stroke', '#ff0')
-        .attr('stroke-width', 3)
-        .raise();
-    })
-    .on('mouseout', function(event, d) {
-      d3.select(this)
-        .attr('stroke', '#333')
-        .attr('stroke-width', 1);
-    })
-    .on('click', function(event, d) {
-      zoomToCountry(d);
-      showCountryInfo(d);
-    });
+    // Draw ocean background
+    svg.insert('rect', ':first-child')
+      .attr('width', width)
+      .attr('height', height)
+      .attr('fill', regionColors['Ocean'])
+      .on('mousemove', function(event) {
+        // Optional: show ocean popup on hover
+        showOceanInfo(event);
+      })
+      .on('mouseout', function() {
+        hidePopup();
+      });
 
-  // --- Seterra-style Quiz Mechanic ---
-  // Quiz state variables
-  let quizActive = false;
-  let quizCountries = [];
-  let quizCurrent = null;
-  let quizScore = 0;
-  let quizAnswered = new Set();
+    // Remove any existing paths before drawing new ones
+    g.selectAll('path').remove();
 
-  // Get quiz UI elements
-  const startBtn = document.getElementById('start-quiz');
-  const restartBtn = document.getElementById('restart-quiz');
-  const promptSpan = document.getElementById('quiz-prompt');
-  const scoreSpan = document.getElementById('quiz-score');
-
-  function resetQuizUI() {
-    promptSpan.textContent = '';
-    scoreSpan.textContent = '';
-    startBtn.style.display = '';
-    restartBtn.style.display = 'none';
-  }
-
-  function startQuiz() {
-    quizActive = true;
-    quizScore = 0;
-    quizAnswered = new Set();
-    quizCountries = g.selectAll('path').data().map(d => d.id).filter(id => window.countryInfoAll[id]);
-    d3.shuffle(quizCountries);
-    startBtn.style.display = 'none';
-    restartBtn.style.display = '';
-    scoreSpan.textContent = `Score: 0/${quizCountries.length}`;
-    nextQuizRound();
-    // Remove previous highlights
-    g.selectAll('path').attr('stroke', '#333').attr('stroke-width', 1).attr('fill', d => {
-      const region = window.countryRegions[d.id] || 'Unknown';
-      return regionColors[region] || '#ff00ff';
-    });
-  }
-
-  function endQuiz() {
-    quizActive = false;
-    promptSpan.textContent = `Quiz complete! Final score: ${quizScore}/${quizCountries.length}`;
-    restartBtn.style.display = '';
-  }
-
-  function nextQuizRound() {
-    if (quizCountries.length === 0) {
-      endQuiz();
-      return;
-    }
-    quizCurrent = quizCountries.pop();
-    const info = window.countryInfoAll[quizCurrent];
-    promptSpan.textContent = `Find: ${info ? info.name : quizCurrent}`;
-    scoreSpan.textContent = `Score: ${quizScore}/${g.selectAll('path').data().length}`;
-  }
-
-  function handleQuizClick(event, d) {
-    if (!quizActive || quizAnswered.has(d.id)) return;
-    if (d.id === quizCurrent) {
-      // Correct
-      d3.select(this)
-        .attr('stroke', 'green')
-        .attr('stroke-width', 4)
-        .raise();
-      quizScore++;
-      quizAnswered.add(d.id);
-      scoreSpan.textContent = `Score: ${quizScore}/${g.selectAll('path').data().length}`;
-      setTimeout(() => {
-        nextQuizRound();
-      }, 700);
-    } else {
-      // Incorrect
-      d3.select(this)
-        .attr('stroke', 'red')
-        .attr('stroke-width', 4)
-        .raise();
-      setTimeout(() => {
+    // Color all countries by continent/region, including those labeled 'Unknown'
+    g.selectAll('path')
+      .data(countries)
+      .enter().append('path')
+      .attr('d', path)
+      .attr('fill', d => {
+        const region = window.countryRegions[d.id] || 'Unknown';
+        return regionColors[region] || '#ff00ff';
+      })
+      .attr('stroke', '#333')
+      .attr('cursor', 'pointer')
+      .on('mouseover', function(event, d) {
+        d3.select(this)
+          .attr('stroke', '#ff0')
+          .attr('stroke-width', 3)
+          .raise();
+      })
+      .on('mouseout', function(event, d) {
         d3.select(this)
           .attr('stroke', '#333')
           .attr('stroke-width', 1);
-      }, 700);
-    }
-  }
-
-  // Remove all previous listeners and set up only quiz-aware listeners
-  g.selectAll('path').on('.quiz', null).on('mouseover', null).on('mouseout', null).on('click', null);
-
-  function setQuizListeners() {
-    g.selectAll('path')
-      .on('mouseover', function(event, d) {
-        if (quizActive && d.id === quizCurrent && !quizAnswered.has(d.id)) {
-          d3.select(this).attr('stroke', '#0f0').attr('stroke-width', 3).raise();
-        } else if (quizActive && !quizAnswered.has(d.id)) {
-          d3.select(this).attr('stroke', '#ff0').attr('stroke-width', 3).raise();
-        } else {
-          d3.select(this).attr('stroke', '#ff0').attr('stroke-width', 3).raise();
-        }
-      })
-      .on('mouseout', function(event, d) {
-        if (quizActive && quizAnswered.has(d.id)) return;
-        d3.select(this).attr('stroke', '#333').attr('stroke-width', 1);
       })
       .on('click', function(event, d) {
-        if (quizActive) {
-          handleQuizClick.call(this, event, d);
-        } else {
-          zoomToCountry(d);
-          showCountryInfo(d);
-        }
+        zoomToCountry(d);
+        showCountryInfo(d);
       });
-  }
 
-  // Add event listeners to quiz buttons
-  if (startBtn) startBtn.onclick = function() {
-    quizActive = true;
-    quizScore = 0;
-    quizAnswered = new Set();
-    quizCountries = g.selectAll('path').data().map(d => d.id).filter(id => window.countryInfoAll[id]);
-    d3.shuffle(quizCountries);
-    startBtn.style.display = 'none';
-    restartBtn.style.display = '';
-    scoreSpan.textContent = `Score: 0/${quizCountries.length}`;
-    nextQuizRound();
-    g.selectAll('path').attr('stroke', '#333').attr('stroke-width', 1).attr('fill', d => {
-      const region = window.countryRegions[d.id] || 'Unknown';
-      return regionColors[region] || '#ff00ff';
-    });
-    setQuizListeners();
-    // Show the prompt span if hidden
+    // --- Seterra-style Quiz Mechanic ---
+    // Quiz state variables
+    let quizActive = false;
+    let quizCountries = [];
+    let quizCurrent = null;
+    let quizScore = 0;
+    let quizAnswered = new Set();
+
+    // Get quiz UI elements
+    const startBtn = document.getElementById('start-quiz');
+    const restartBtn = document.getElementById('restart-quiz');
+    const promptSpan = document.getElementById('quiz-prompt');
+    const scoreSpan = document.getElementById('quiz-score');
+
+    function resetQuizUI() {
+      promptSpan.textContent = '';
+      scoreSpan.textContent = '';
+      startBtn.style.display = '';
+      restartBtn.style.display = 'none';
+    }
+
+    function startQuiz() {
+      quizActive = true;
+      quizScore = 0;
+      quizAnswered = new Set();
+      quizCountries = g.selectAll('path').data().map(d => d.id).filter(id => window.countryInfoAll[id]);
+      d3.shuffle(quizCountries);
+      startBtn.style.display = 'none';
+      restartBtn.style.display = '';
+      scoreSpan.textContent = `Score: 0/${quizCountries.length}`;
+      nextQuizRound();
+      // Remove previous highlights
+      g.selectAll('path').attr('stroke', '#333').attr('stroke-width', 1).attr('fill', d => {
+        const region = window.countryRegions[d.id] || 'Unknown';
+        return regionColors[region] || '#ff00ff';
+      });
+    }
+
+    function endQuiz() {
+      quizActive = false;
+      promptSpan.textContent = `Quiz complete! Final score: ${quizScore}/${quizCountries.length}`;
+      restartBtn.style.display = '';
+    }
+
+    function nextQuizRound() {
+      if (quizCountries.length === 0) {
+        endQuiz();
+        return;
+      }
+      quizCurrent = quizCountries.pop();
+      const info = window.countryInfoAll[quizCurrent];
+      promptSpan.textContent = `Find: ${info ? info.name : quizCurrent}`;
+      scoreSpan.textContent = `Score: ${quizScore}/${g.selectAll('path').data().length}`;
+    }
+
+    function handleQuizClick(event, d) {
+      if (!quizActive || quizAnswered.has(d.id)) return;
+      if (d.id === quizCurrent) {
+        // Correct
+        d3.select(this)
+          .attr('stroke', 'green')
+          .attr('stroke-width', 4)
+          .raise();
+        quizScore++;
+        quizAnswered.add(d.id);
+        scoreSpan.textContent = `Score: ${quizScore}/${g.selectAll('path').data().length}`;
+        setTimeout(() => {
+          nextQuizRound();
+        }, 700);
+      } else {
+        // Incorrect
+        d3.select(this)
+          .attr('stroke', 'red')
+          .attr('stroke-width', 4)
+          .raise();
+        setTimeout(() => {
+          d3.select(this)
+            .attr('stroke', '#333')
+            .attr('stroke-width', 1);
+        }, 700);
+      }
+    }
+
+    // Remove all previous listeners and set up only quiz-aware listeners
+    g.selectAll('path').on('.quiz', null).on('mouseover', null).on('mouseout', null).on('click', null);
+
+    function setQuizListeners() {
+      g.selectAll('path')
+        .on('mouseover', function(event, d) {
+          if (quizActive && d.id === quizCurrent && !quizAnswered.has(d.id)) {
+            d3.select(this).attr('stroke', '#0f0').attr('stroke-width', 3).raise();
+          } else if (quizActive && !quizAnswered.has(d.id)) {
+            d3.select(this).attr('stroke', '#ff0').attr('stroke-width', 3).raise();
+          } else {
+            d3.select(this).attr('stroke', '#ff0').attr('stroke-width', 3).raise();
+          }
+        })
+        .on('mouseout', function(event, d) {
+          if (quizActive && quizAnswered.has(d.id)) return;
+          d3.select(this).attr('stroke', '#333').attr('stroke-width', 1);
+        })
+        .on('click', function(event, d) {
+          if (quizActive) {
+            handleQuizClick.call(this, event, d);
+          } else {
+            zoomToCountry(d);
+            showCountryInfo(d);
+          }
+        });
+    }
+
+    // Add event listeners to quiz buttons
+    if (startBtn) startBtn.onclick = function() {
+      quizActive = true;
+      quizScore = 0;
+      quizAnswered = new Set();
+      quizCountries = g.selectAll('path').data().map(d => d.id).filter(id => window.countryInfoAll[id]);
+      d3.shuffle(quizCountries);
+      startBtn.style.display = 'none';
+      restartBtn.style.display = '';
+      scoreSpan.textContent = `Score: 0/${quizCountries.length}`;
+      nextQuizRound();
+      g.selectAll('path').attr('stroke', '#333').attr('stroke-width', 1).attr('fill', d => {
+        const region = window.countryRegions[d.id] || 'Unknown';
+        return regionColors[region] || '#ff00ff';
+      });
+      setQuizListeners();
+      // Show the prompt span if hidden
+      promptSpan.style.display = '';
+    };
+    if (restartBtn) restartBtn.onclick = function() {
+      startBtn.onclick();
+    };
+    // Make sure the prompt span is visible on load
     promptSpan.style.display = '';
-  };
-  if (restartBtn) restartBtn.onclick = function() {
-    startBtn.onclick();
-  };
-  // Make sure the prompt span is visible on load
-  promptSpan.style.display = '';
 
-  // Enable quiz buttons and clear loading message when map is ready
-  document.getElementById('start-quiz').disabled = false;
-  document.getElementById('restart-quiz').disabled = false;
-  document.getElementById('quiz-prompt').textContent = '';
+    // Enable quiz buttons and clear loading message when map is ready
+    document.getElementById('start-quiz').disabled = false;
+    document.getElementById('restart-quiz').disabled = false;
+    document.getElementById('quiz-prompt').textContent = '';
+  });
 });
 
 // If on the main map page, redirect to quiz.html when Start Quiz is clicked
